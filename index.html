@@ -3,25 +3,50 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>마화섹 피하기 — 조정판 (점프↑ 간격↑ 속도↑)</title>
+<title>마화섹 피하기 — 튜너판 (속도·점프·체공 조정)</title>
 <style>
   :root{--bg1:#061127;--panel:rgba(255,255,255,0.04);--text:#e9f6ff}
   html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),#04101a);font-family:Inter, "Noto Sans KR", system-ui,-apple-system,sans-serif;color:var(--text)}
   .wrap{display:flex;flex-direction:column;height:100vh;padding:12px;box-sizing:border-box;gap:10px}
-  .panel{background:var(--panel);padding:10px;border-radius:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .note{font-size:12px;color:#cde9ff;opacity:.95}
+  .panel{background:var(--panel);padding:10px;border-radius:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .controls{display:flex;gap:10px;align-items:center}
+  label{font-size:13px;color:#bfe6ff;font-weight:600}
+  .small{font-size:12px;color:#cfe8ff}
+  input[type=range]{width:180px}
+  .debug{font-size:12px;color:#9ecbff;background:rgba(255,255,255,0.02);padding:8px;border-radius:8px}
   #gamebox{position:relative;flex:1;border-radius:12px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,0.6)}
   canvas{display:block;width:100%;height:100%}
   .preview img{max-height:64px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)}
   button,select{background:linear-gradient(90deg,#7c3aed,#ec4899);border:none;color:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700}
-  select{background:transparent;color:var(--text);padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)}
   footer{font-size:12px;color:#9bb7e6;text-align:center;padding:6px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="panel">
-    <div class="note">루트에 <strong>cibung.jpg</strong> (장애물) 와 <strong>koyam.jpg</strong> (캐릭터)를 넣으세요.</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="controls">
+        <label>장애물 속도 배수</label>
+        <input id="speedRange" type="range" min="0.5" max="3.0" step="0.05" />
+        <input id="speedNum" type="number" min="0.5" max="3.0" step="0.05" style="width:68px" />
+        <div class="small">기본값: <strong>1.7</strong></div>
+      </div>
+
+      <div class="controls">
+        <label>점프력 배수</label>
+        <input id="jumpRange" type="range" min="0.5" max="3.0" step="0.05" />
+        <input id="jumpNum" type="number" min="0.5" max="3.0" step="0.05" style="width:68px" />
+        <div class="small">기본값: <strong>1.8</strong></div>
+      </div>
+
+      <div class="controls">
+        <label>체공시간 배수</label>
+        <input id="airRange" type="range" min="0.6" max="2.5" step="0.05" />
+        <input id="airNum" type="number" min="0.6" max="2.5" step="0.05" style="width:68px" />
+        <div class="small">기본값: <strong>1.5</strong></div>
+      </div>
+    </div>
+
     <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
       <select id="difficulty">
         <option value="easy">쉬움</option>
@@ -32,7 +57,10 @@
       <button id="retryBtn" disabled>Retry</button>
       <button id="muteBtn">🔊</button>
     </div>
-    <div style="margin-left:12px;color:#cfe8ff">점수: <strong id="score">0</strong> &nbsp; 최고: <strong id="best">0</strong></div>
+
+    <div style="margin-left:12px">
+      <div class="small">점수: <strong id="score">0</strong> &nbsp; 최고: <strong id="best">0</strong></div>
+    </div>
   </div>
 
   <div id="gamebox">
@@ -44,33 +72,39 @@
     </div>
 
     <div style="position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-      <div class="note">요청 반영: 점프 최고 높이 ×1.5, 장애물 간격 ×2, 장애물 속도 ×1.3</div>
+      <div class="debug" id="debugBox">로딩 중…</div>
     </div>
   </div>
 
-  <footer>즉시 적용: 파일 덮어쓰기 후 페이지 새로고침 → 테스트해보세요.</footer>
+  <footer>루트에 <strong>cibung.jpg</strong> 와 <strong>koyam.jpg</strong> 를 업로드하세요. 슬라이더로 즉시 조정 가능합니다.</footer>
 </div>
 
 <script>
-/* 반영된 조정판
-   - 점프 최대 높이 1.5배: jumpBoost가 기존보다 1.5배 (실제 apex 증가는 물리식으로 반영)
-   - 장애물 간격 2.0배: SPAWN_SPACING_MULT = 2.0
-   - 장애물 속도 1.3배: WORLD_BASE increased by 1.3
-   사용법: 리포지토리 루트에 cibung.jpg, koyam.jpg 올리고 이 index.html로 덮어쓰기.
+/* 튜너판 — 장애물 속도, 점프력, 체공시간을 메뉴에서 조정 가능
+   디폴트값(요청):
+     obstacleSpeedMult = 1.7
+     jumpPowerMult = 1.8
+     airtimeMult    = 1.5
+
+   이 변수들은 명확히 그 자리에서만 사용됩니다.
 */
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d',{alpha:true});
 let DPR = window.devicePixelRatio || 1;
-function resizeCanvas(){
-  const r = canvas.getBoundingClientRect();
-  canvas.width = Math.max(900, Math.floor(r.width * DPR));
-  canvas.height = Math.max(440, Math.floor(r.height * DPR));
-}
+function resizeCanvas(){ const r = canvas.getBoundingClientRect(); canvas.width = Math.max(900, Math.floor(r.width * DPR)); canvas.height = Math.max(440, Math.floor(r.height * DPR)); }
 window.addEventListener('resize', ()=>{ DPR = window.devicePixelRatio || 1; resizeCanvas(); });
 resizeCanvas();
 
-/* UI refs */
+/* UI */
+const speedRange = document.getElementById('speedRange');
+const speedNum = document.getElementById('speedNum');
+const jumpRange = document.getElementById('jumpRange');
+const jumpNum = document.getElementById('jumpNum');
+const airRange = document.getElementById('airRange');
+const airNum = document.getElementById('airNum');
+const debugBox = document.getElementById('debugBox');
+
 const startBtn = document.getElementById('startBtn');
 const retryBtn = document.getElementById('retryBtn');
 const muteBtn = document.getElementById('muteBtn');
@@ -78,97 +112,150 @@ const difficultyEl = document.getElementById('difficulty');
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
 
-/* original ratios (fixed) */
+/* 고정된 원본 비율 */
 const PLAYER_R_W = 143, PLAYER_R_H = 54;
 const OB_R_W = 720, OB_R_H = 934;
 
-/* images */
-let obsImg = new Image();
-let plImg = new Image();
+/* 이미지 로드 (루트 파일명) */
+let obsImg = new Image(), plImg = new Image();
 let obsLoaded=false, plLoaded=false;
 obsImg.onload = ()=>{ obsLoaded=true; checkReady(); drawIdle(); };
-obsImg.onerror = ()=>{ obsLoaded=false; alert('cibung.jpg 로드 실패: 루트에 업로드했는지 확인하세요.'); };
+obsImg.onerror = ()=>{ obsLoaded=false; alert('cibung.jpg 로드 실패 — 루트에 올렸는지 확인하세요.'); };
 plImg.onload = ()=>{ plLoaded=true; checkReady(); drawIdle(); };
-plImg.onerror = ()=>{ plLoaded=false; alert('koyam.jpg 로드 실패: 루트에 업로드했는지 확인하세요.'); };
+plImg.onerror = ()=>{ plLoaded=false; alert('koyam.jpg 로드 실패 — 루트에 올렸는지 확인하세요.'); };
 obsImg.src = 'cibung.jpg';
 plImg.src = 'koyam.jpg';
 
-/* state */
+/* 상태 */
 let gameRunning=false;
-let score=0;
+let score = 0;
 let best = Number(localStorage.getItem('mahwa_best_github')||0);
 bestEl.textContent = best;
 
 let player = {x:0,y:0,w:0,h:0,vy:0,onGround:true};
 let obstacles = [];
 let spawnAccumulator = 0;
-let lastTime = 0;
 let timeStart = 0;
+let prevTime = 0;
 
-/* physics controllers (dynamic) */
-/* --- USER-REQUESTED ADJUSTMENTS --- */
-let jumpBoost = 2.4;          // 기존 1.6 -> 1.6 * 1.5 = 2.4 (점프감과 apex 반영)
-const SPAWN_SPACING_MULT = 2.0; // 장애물 간격을 2배로
-const WORLD_BASE = Math.round(360 * 1.3); // 기존 360 -> ×1.3 = 468 (장애물 속도 증가)
+/* 물리 기본값 */
+const WORLD_BASE_BASE = 360 * 1.3; // 이전에 사용하던 기본값에 1.3배 반영 -> 468
+let obstacleSpeedMult = 1.7;   // Default as requested
+let jumpPowerMult = 1.8;       // Default as requested
+let airtimeMult = 1.5;         // Default as requested
 
-let GRAVITY = 2600;      // px/s^2 baseline (scaled)
-let JUMP_V0 = -900;      // px/s (negative upward)
-let safetyMargin = 12;   // px
-let allowedObstacleH = 120; // dynamic
-let topMargin = 20;      // px from top allowed
-
-/* tolerance */
+let GRAVITY = 2600;    // will be scaled and replaced in computePhysics
+let JUMP_V0 = -900;    // negative upward
+let allowedObstacleH = 120;
 const COLLISION_TOLERANCE = 12;
+const topMargin = 20;
 
-/* audio */
+/* 오디오 */
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-let muted=false;
-function playTone(freq=440, dur=0.08, type='sine', gain=0.08){ if(muted) return; try{ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type=type; o.frequency.value=freq; g.gain.value=gain; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+dur);}catch(e){} }
-muteBtn.addEventListener('click', ()=>{ muted = !muted; muteBtn.textContent = muted? '🔈' : '🔊'; });
+let muted = false;
+function playTone(freq=440,dur=0.08,type='sine',gain=0.08){ if(muted) return; try{ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type=type; o.frequency.value=freq; g.gain.value=gain; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+dur);}catch(e){} }
+muteBtn.addEventListener('click', ()=>{ muted=!muted; muteBtn.textContent = muted? '🔈':'🔊'; });
 
-/* compute base sizes: player 작게, obstacle 크게 (요청 반영) */
+/* UI 초기값 및 동기화 */
+function setUIvalues(){
+  speedRange.value = obstacleSpeedMult; speedNum.value = Number(obstacleSpeedMult).toFixed(2);
+  jumpRange.value = jumpPowerMult; jumpNum.value = Number(jumpPowerMult).toFixed(2);
+  airRange.value = airtimeMult; airNum.value = Number(airtimeMult).toFixed(2);
+  updateDebug();
+}
+setUIvalues();
+
+function syncFromRange(){
+  obstacleSpeedMult = parseFloat(speedRange.value);
+  speedNum.value = Number(obstacleSpeedMult).toFixed(2);
+  jumpPowerMult = parseFloat(jumpRange.value);
+  jumpNum.value = Number(jumpPowerMult).toFixed(2);
+  airtimeMult = parseFloat(airRange.value);
+  airNum.value = Number(airtimeMult).toFixed(2);
+  updateDebug();
+}
+function syncFromNumber(){
+  obstacleSpeedMult = Math.min(3, Math.max(0.5, parseFloat(speedNum.value) || 1.7));
+  speedRange.value = obstacleSpeedMult;
+  jumpPowerMult = Math.min(3, Math.max(0.5, parseFloat(jumpNum.value) || 1.8));
+  jumpRange.value = jumpPowerMult;
+  airtimeMult = Math.min(2.5, Math.max(0.6, parseFloat(airNum.value) || 1.5));
+  airRange.value = airtimeMult;
+  updateDebug();
+}
+speedRange.addEventListener('input', syncFromRange);
+jumpRange.addEventListener('input', syncFromRange);
+airRange.addEventListener('input', syncFromRange);
+speedNum.addEventListener('change', syncFromNumber);
+jumpNum.addEventListener('change', syncFromNumber);
+airNum.addEventListener('change', syncFromNumber);
+
+/* 크기(비율 유지) */
 function computeBaseSizes(){
   const H = canvas.height;
-  const playerTargetH = Math.max(28, Math.round(H * 0.09)); // 작게
+  const playerTargetH = Math.max(28, Math.round(H * 0.09)); // 작게 유지
   const obstacleTargetH = Math.max(64, Math.round(H * 0.24)); // 크게 시도
   const playerW = Math.round(playerTargetH * (PLAYER_R_W / PLAYER_R_H));
   const obstacleW = Math.round(obstacleTargetH * (OB_R_W / OB_R_H));
   return {playerW, playerH:playerTargetH, obstacleW, obstacleH:obstacleTargetH};
 }
 
-/* compute physics and cap so player won't fly off-screen */
+/* 물리 계산:
+   - base gravity (g_base) scales with canvas
+   - compute requiredRise from obstacle & player size
+   - baseV0_min = sqrt(2 * g_base * requiredRise)
+   - finalV0 = baseV0_min * jumpPowerMult
+   - effective gravity g_eff = g_base / airtimeMult  (airtimeMult >1 => lower gravity => longer airtime)
+   - cap finalV0 so apex <= maxRiseAllowed: apex = finalV0^2/(2*g_eff)
+*/
 function computePhysics(){
   const H = canvas.height;
   const baseCanvas = 640;
-  GRAVITY = 2600 * (H / baseCanvas);
+  const g_base = 2600 * (H / baseCanvas);
 
   const sizes = computeBaseSizes();
-  safetyMargin = Math.max(12, Math.round(sizes.obstacleH * 0.12));
-
   let desiredObH = sizes.obstacleH;
+  // safety margin
+  const safetyMargin = Math.max(12, Math.round(desiredObH * 0.12));
+
   const groundY = H - Math.floor(H * 0.06);
   const playerTopInitial = groundY - sizes.playerH;
   const maxRiseAllowed = Math.max(40, playerTopInitial - topMargin);
 
+  // required rise to clear: obstacle.h - player.h + margin
   let requiredRise = Math.max(0, desiredObH - sizes.playerH + safetyMargin);
   if(requiredRise > maxRiseAllowed){
+    // reduce obstacle height so jumpable
     desiredObH = Math.max(34, Math.floor(maxRiseAllowed - safetyMargin + sizes.playerH));
     requiredRise = Math.max(0, desiredObH - sizes.playerH + safetyMargin);
   }
 
-  let baseV0 = Math.sqrt(2 * GRAVITY * requiredRise);
-  baseV0 *= jumpBoost; // 요청 반영된 점프감 (1.5배 반영 이미 포함 in jumpBoost)
-  const apexIfBoosted = (baseV0 * baseV0) / (2 * GRAVITY);
+  // base minimal v0
+  const baseV0 = Math.sqrt(2 * g_base * requiredRise || 0);
+
+  // apply jump power multiplier (user-controlled)
+  let finalV0 = baseV0 * jumpPowerMult;
+
+  // effective gravity from airtime multiplier
+  const g_eff = g_base / airtimeMult;
+
+  // cap apex so it doesn't exceed maxRiseAllowed
+  const apexIfBoosted = (finalV0 * finalV0) / (2 * g_eff);
   if(apexIfBoosted > maxRiseAllowed){
-    baseV0 = Math.sqrt(2 * GRAVITY * maxRiseAllowed);
+    finalV0 = Math.sqrt(2 * g_eff * maxRiseAllowed);
   }
-  JUMP_V0 = - Math.ceil(baseV0);
+
+  // finalize
+  JUMP_V0 = - Math.ceil(finalV0);
+  GRAVITY = g_eff;
   allowedObstacleH = desiredObH;
-  const airtime = 2 * Math.abs(JUMP_V0) / GRAVITY;
-  return {GRAVITY, JUMP_V0, allowedObstacleH, safetyMargin, airtime};
+
+  // computed airtime for display
+  const airtime = (finalV0 > 0) ? 2 * Math.abs(JUMP_V0) / GRAVITY : 0;
+  return {g_base, g_eff, JUMP_V0, GRAVITY, allowedObstacleH, requiredRise, airtime, sizes};
 }
 
-/* spawn obstacle using allowedObstacleH */
+/* 스폰/충돌 */
 function spawnObstacle(worldSpeed){
   const obH = allowedObstacleH;
   const obW = Math.round(obH * (OB_R_W / OB_R_H));
@@ -176,20 +263,18 @@ function spawnObstacle(worldSpeed){
   const y = canvas.height - obH - Math.floor(canvas.height*0.06);
   obstacles.push({x,y,w:obW,h:obH,passed:false});
 }
-
-/* collision AABB with tolerance */
-function checkCollisionBoxes(a,b){
+function rectsCollide(a,b){ return !(a.x + a.w <= b.x || a.x >= b.x + b.w || a.y + a.h <= b.y || a.y >= b.y + b.h); }
+function tolerantCollision(a,b){
   const horiz = !(a.x + a.w <= b.x || a.x >= b.x + b.w);
-  const vertOverlap = (a.y + a.h) - b.y;
   if(!horiz) return false;
+  const vertOverlap = (a.y + a.h) - b.y;
   if(vertOverlap <= 0) return false;
-  if(vertOverlap > 0 && vertOverlap <= COLLISION_TOLERANCE && !player.onGround){
-    return false;
-  }
+  // 허용치 내 미세한 머리 접촉은 airborne이면 무시 (착지 후 완전 겹침은 죽음)
+  if(vertOverlap > 0 && vertOverlap <= COLLISION_TOLERANCE && !player.onGround) return false;
   return true;
 }
 
-/* controls */
+/* 입력 */
 function jump(){
   if(!gameRunning) return;
   if(player.onGround){
@@ -202,31 +287,33 @@ window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault()
 canvas.addEventListener('mousedown', ()=>jump());
 canvas.addEventListener('touchstart', ()=>{ jump(); }, {passive:true});
 
+/* 난이도 계수 */
 function difficultyFactor(d){
   if(d==='easy') return 0.82;
   if(d==='normal') return 1.0;
   return 1.28;
 }
 
-/* reset/start/end */
+/* 리셋/시작/종료 */
 function resetState(){
   resizeCanvas();
   const sizes = computeBaseSizes();
   player.w = sizes.playerW; player.h = sizes.playerH;
   player.x = Math.round(canvas.width * 0.12);
-  player.y = canvas.height - player.h - Math.floor(canvas.height * 0.06);
+  player.y = canvas.height - player.h - Math.floor(canvas.height*0.06);
   player.vy = 0; player.onGround = true;
   obstacles = [];
   score = 0; scoreEl.textContent = score;
   timeStart = performance.now();
   spawnAccumulator = 0;
+  prevTime = performance.now();
   computePhysics();
+  updateDebug();
 }
 function startGame(){
-  if(!obsLoaded || !plLoaded){ alert('이미지를 먼저 업로드하고 페이지를 새로고침하세요 (cibung.jpg / koyam.jpg).'); return; }
+  if(!obsLoaded || !plLoaded){ alert('먼저 이미지(cibung.jpg, koyam.jpg)를 리포에 올리고 새로고침하세요.'); return; }
   if(audioCtx.state === 'suspended') audioCtx.resume();
   resetState();
-  lastTime = performance.now();
   gameRunning = true;
   startBtn.disabled = true;
   retryBtn.disabled = true;
@@ -241,39 +328,42 @@ function endGame(){
   if(score > best){ best = score; localStorage.setItem('mahwa_best_github', best); bestEl.textContent = best; }
 }
 
-/* main loop */
-let prevTime = 0;
+/* 메인 루프 */
+let spawnAccumulatorMs = 0;
 function loop(now){
   if(!gameRunning) return;
   const dtMs = Math.min(40, now - prevTime);
-  const dt = dtMs/1000;
+  const dt = dtMs / 1000;
   prevTime = now;
 
   const elapsed = (now - timeStart);
   const timeFactor = Math.min(4.0, 1 + elapsed/60000);
-  const diff = difficultyEl.value;
-  const diffMult = difficultyFactor(diff);
-  const worldSpeed = WORLD_BASE * diffMult * timeFactor; // 적용된 ×1.3 속도
+  const diffMult = difficultyFactor(difficultyEl.value);
 
+  // world speed uses WORLD_BASE_BASE * user obstacleSpeedMult
+  const worldSpeed = WORLD_BASE_BASE * obstacleSpeedMult * diffMult * timeFactor;
+
+  // recompute physics to respect live sliders (and resizing)
   const phys = computePhysics();
   const airtime = phys.airtime;
 
-  // adaptive spawn interval with requested multiplier (×2)
+  // spawn spacing: based on airtime and worldSpeed, apply a safety multiplier
   const obW = Math.round(allowedObstacleH * (OB_R_W / OB_R_H));
   let desiredSpacingPx = Math.max(canvas.width * 0.6, worldSpeed * airtime * 1.25 + obW * 1.4);
-  desiredSpacingPx *= SPAWN_SPACING_MULT; // **요청: 간격 2배**
-  const spawnIntervalMs = Math.max(650, desiredSpacingPx / worldSpeed * 1000);
+  // we intentionally set a generous spacing factor to avoid impossible timing
+  desiredSpacingPx = Math.max(desiredSpacingPx, canvas.width * 0.6);
+  const spawnIntervalMs = Math.max(450, desiredSpacingPx / worldSpeed * 1000);
 
-  spawnAccumulator += dtMs;
-  if(spawnAccumulator >= spawnIntervalMs){
-    spawnAccumulator = 0;
+  spawnAccumulatorMs += dtMs;
+  if(spawnAccumulatorMs >= spawnIntervalMs){
+    spawnAccumulatorMs = 0;
     spawnObstacle(worldSpeed);
   }
 
-  // player physics
+  // integrate player
   player.vy += GRAVITY * dt;
   player.y += player.vy * dt;
-  const groundY = canvas.height - Math.floor(canvas.height*0.06);
+  const groundY = canvas.height - Math.floor(canvas.height * 0.06);
   if(player.y + player.h >= groundY){
     player.y = groundY - player.h;
     player.vy = 0;
@@ -289,18 +379,17 @@ function loop(now){
   // collisions & scoring
   for(const ob of obstacles){
     if(!ob.passed && ob.x + ob.w < player.x){
-      ob.passed = true;
-      score += 10;
-      playTone(880 + Math.random()*220, 0.08, 'triangle', 0.06);
+      ob.passed = true; score += 10; playTone(880 + Math.random()*220,0.08,'triangle',0.06);
     }
     const pBox = {x:player.x, y:player.y, w:player.w, h:player.h};
     const oBox = {x:ob.x, y:ob.y, w:ob.w, h:ob.h};
-    if(checkCollisionBoxes(pBox, oBox)){
+    if(tolerantCollision(pBox, oBox)){
       endGame();
       return;
     }
   }
 
+  // time-based score increase
   score += Math.floor(dt * 12 * timeFactor);
   scoreEl.textContent = score;
 
@@ -308,15 +397,13 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 
-/* draw */
+/* 그리기 */
 function draw(now, worldSpeed, timeFactor){
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // bg
   const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#071426'); g.addColorStop(1,'#03091a');
   ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // parallax
+  // parallax blobs
   for(let i=0;i<6;i++){
     const t = now/1000;
     const depth = 1 - i*0.12;
@@ -330,7 +417,7 @@ function draw(now, worldSpeed, timeFactor){
   }
 
   // ground
-  const groundH = Math.floor(canvas.height*0.06);
+  const groundH = Math.floor(canvas.height * 0.06);
   ctx.fillStyle = 'rgba(0,0,0,0.32)';
   ctx.fillRect(0, canvas.height - groundH, canvas.width, groundH);
 
@@ -357,16 +444,14 @@ function draw(now, worldSpeed, timeFactor){
 
   // HUD
   ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  ctx.fillRect(12*DPR, 12*DPR, 300*DPR, 46*DPR);
-  ctx.fillStyle = '#dff0ff';
-  ctx.font = `${14*DPR}px sans-serif`;
+  ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(12*DPR,12*DPR,320*DPR,46*DPR);
+  ctx.fillStyle='#dff0ff'; ctx.font = `${14*DPR}px sans-serif`;
   ctx.fillText('점수: ' + score, 22*DPR, 36*DPR);
-  ctx.fillText('최고: ' + best, 160*DPR, 36*DPR);
+  ctx.fillText('최고: ' + best, 180*DPR, 36*DPR);
   ctx.restore();
 }
 
-/* idle preview */
+/* idle (preview) */
 function drawIdle(){
   resizeCanvas();
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -385,19 +470,23 @@ function drawIdle(){
   else { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(pX, pY, pW, pH); }
 }
 
-/* ready & UI */
-function checkReady(){
-  if(obsLoaded && plLoaded){
-    startBtn.disabled = false;
-    retryBtn.disabled = true;
-    resetState();
-  }
+/* 디버그 표시 (사용자가 입력한 값 + 계산 결과 요약) */
+function updateDebug(){
+  const phys = computePhysics();
+  debugBox.innerText = 
+    `속도Mult: ${obstacleSpeedMult.toFixed(2)}  |  점프Mult: ${jumpPowerMult.toFixed(2)}  |  체공Mult: ${airtimeMult.toFixed(2)}\n` +
+    `JUMP_V0: ${JUMP_V0} px/s  |  GRAVITY: ${Math.round(GRAVITY)} px/s²  |  허용장애물높이: ${allowedObstacleH}px\n` +
+    `예상체공시간(대략): ${(phys.airtime||0).toFixed(2)} s`;
 }
+
+/* 준비/이벤트 */
+function checkReady(){ if(obsLoaded && plLoaded){ startBtn.disabled = false; retryBtn.disabled = true; resetState(); } }
 startBtn.addEventListener('click', ()=>{ if(audioCtx.state==='suspended') audioCtx.resume(); startGame(); });
 retryBtn.addEventListener('click', ()=>{ resetState(); startGame(); });
 
-/* init */
+/* 초기 루프 */
 (function init(){
+  setUIvalues();
   function idle(){ if(!gameRunning) drawIdle(); requestAnimationFrame(idle); }
   idle();
 })();
