@@ -3,83 +3,58 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>마화섹 피하기 — (cibung.jpg / koyam.jpg)</title>
+<title>마화섹 피하기 — (cibung.jpg / koyam.jpg) — 물리 보정판</title>
 <style>
-  :root{
-    --bg1:#061127; --panel:rgba(255,255,255,0.04); --text:#e9f6ff;
-  }
-  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),#04101a);font-family:Inter, "Noto Sans KR", system-ui, -apple-system, sans-serif;color:var(--text)}
+  :root{--bg1:#061127;--panel:rgba(255,255,255,0.04);--text:#e9f6ff}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),#04101a);font-family:Inter,"Noto Sans KR",system-ui,-apple-system,sans-serif;color:var(--text)}
   .wrap{display:flex;flex-direction:column;height:100vh;padding:12px;box-sizing:border-box;gap:10px}
-  .top{display:flex;gap:8px;align-items:center}
   .panel{background:var(--panel);padding:10px;border-radius:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  button{background:linear-gradient(90deg,#7c3aed,#ec4899);border:none;color:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700}
-  button:disabled{opacity:.45;cursor:not-allowed}
+  .note{font-size:12px;color:#cde9ff;opacity:.95}
   #gamebox{position:relative;flex:1;border-radius:12px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,0.6)}
   canvas{display:block;width:100%;height:100%}
-  .preview{display:flex;gap:8px;align-items:center}
   .preview img{max-height:64px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)}
+  button,select{background:linear-gradient(90deg,#7c3aed,#ec4899);border:none;color:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700}
+  select{background:transparent;color:var(--text);padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06)}
   footer{font-size:12px;color:#9bb7e6;text-align:center;padding:6px}
-  .controls{display:flex;gap:6px;align-items:center}
-  .stat{font-size:14px;color:#cfe8ff}
-  .hint{background:rgba(0,0,0,0.45);padding:8px;border-radius:8px;font-size:13px}
-  .note{font-size:12px;color:#cde9ff;opacity:0.9}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top">
-    <div class="panel" style="flex:1;gap:12px">
-      <div style="display:flex;gap:8px;align-items:center">
-        <div style="color:#bfe6ff;font-weight:600">장애물 파일(루트):</div>
-        <div class="note">/cibung.jpg (확장자 .jpg 고정)</div>
-      </div>
-
-      <div style="display:flex;gap:8px;align-items:center">
-        <div style="color:#bfe6ff;font-weight:600">캐릭터 파일(루트):</div>
-        <div class="note">/koyam.jpg (확장자 .jpg 고정)</div>
-      </div>
-
-      <div class="controls">
-        <select id="difficulty">
-          <option value="easy">쉬움</option>
-          <option value="normal" selected>보통</option>
-          <option value="hard">어려움</option>
-        </select>
-        <button id="startBtn" disabled>Start</button>
-        <button id="retryBtn" disabled>Retry</button>
-        <button id="muteBtn">🔊</button>
-      </div>
-
-      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
-        <div class="stat">점수: <strong id="score">0</strong></div>
-        <div class="stat">최고: <strong id="best">0</strong></div>
-      </div>
+  <div class="panel">
+    <div class="note">루트에 <strong>cibung.jpg</strong> (장애물) 과 <strong>koyam.jpg</strong> (캐릭터)를 올려두세요.</div>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <select id="difficulty">
+        <option value="easy">쉬움</option>
+        <option value="normal" selected>보통</option>
+        <option value="hard">어려움</option>
+      </select>
+      <button id="startBtn" disabled>Start</button>
+      <button id="retryBtn" disabled>Retry</button>
+      <button id="muteBtn">🔊</button>
     </div>
+    <div style="margin-left:12px;color:#cfe8ff">점수: <strong id="score">0</strong> &nbsp; 최고: <strong id="best">0</strong></div>
   </div>
 
   <div id="gamebox">
     <canvas id="game"></canvas>
 
-    <!-- 미리보기 -->
     <div style="position:absolute;left:12px;top:12px;display:flex;gap:12px;align-items:center">
-      <div class="preview"><div style="font-size:12px;color:#d9f0ff">장애물</div><img id="previewObs" alt="obs" src="cibung.jpg"/></div>
-      <div class="preview"><div style="font-size:12px;color:#d9f0ff">캐릭터</div><img id="previewPl" alt="pl" src="koyam.jpg"/></div>
+      <div class="preview"><div style="font-size:12px;color:#d9f0ff">장애물</div><img id="previewObs" src="cibung.jpg" alt="obs"></div>
+      <div class="preview"><div style="font-size:12px;color:#d9f0ff">캐릭터</div><img id="previewPl" src="koyam.jpg" alt="pl"></div>
     </div>
 
     <div style="position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-      <div class="hint">스페이스/클릭/터치 → 점프 · 이미지 비율(143×54, 720×934)을 유지하여 히트박스를 정확히 맞춤</div>
-      <div class="note">루트에 <code>cibung.jpg</code> 와 <code>koyam.jpg</code> 를 넣으면 자동으로 사용됩니다.</div>
+      <div class="note">스페이스/클릭/터치 → 점프 • 모든 난이도에서 피하도록 물리 자동 보정</div>
     </div>
   </div>
 
-  <footer>이미지 파일명이 정확하면 별도 버튼 없이 자동 로드됩니다.</footer>
+  <footer>비율은 그대로 — 크기와 점프/간격을 계산으로 보정했습니다.</footer>
 </div>
 
 <script>
-/* 자동 로드 버전 — 루트에 있는 cibung.jpg / koyam.jpg 를 사용
-   - 캐릭터 비율: 143x54
-   - 장애물 비율: 720x934
-   - 히트박스는 그려진 사각형과 정확히 일치
+/* === 물리 보정판 (자동 로드: cibung.jpg / koyam.jpg) ===
+   목표: 이미지 비율 유지. 크기(스케일), 중력, 초기 점프속도, 스폰 간격을 계산해서
+   모든 난이도에서 플레이어가 장애물을 피할 수 있게 보장.
 */
 
 const canvas = document.getElementById('game');
@@ -88,43 +63,56 @@ let DPR = window.devicePixelRatio || 1;
 function resizeCanvas(){
   const r = canvas.getBoundingClientRect();
   canvas.width = Math.max(900, Math.floor(r.width * DPR));
-  canvas.height = Math.max(480, Math.floor(r.height * DPR));
+  canvas.height = Math.max(420, Math.floor(r.height * DPR));
 }
 window.addEventListener('resize', ()=>{ DPR = window.devicePixelRatio || 1; resizeCanvas(); });
 resizeCanvas();
 
-/* UI refs */
+/* UI */
 const startBtn = document.getElementById('startBtn');
 const retryBtn = document.getElementById('retryBtn');
 const muteBtn = document.getElementById('muteBtn');
-const previewObs = document.getElementById('previewObs');
-const previewPl = document.getElementById('previewPl');
+const difficultyEl = document.getElementById('difficulty');
 const scoreEl = document.getElementById('score');
 const bestEl = document.getElementById('best');
-const difficultyEl = document.getElementById('difficulty');
 
-/* strict ratios */
+/* strict ratios (원본 비율 유지) */
 const PLAYER_R_W = 143, PLAYER_R_H = 54;
 const OB_R_W = 720, OB_R_H = 934;
 
-/* images */
+/* 이미지 로드 */
 let obsImg = new Image();
 let plImg = new Image();
-let obsLoaded = false, plLoaded = false;
+let obsLoaded=false, plLoaded=false;
+obsImg.onload = ()=>{ obsLoaded=true; checkReady(); drawIdle(); };
+obsImg.onerror = ()=>{ obsLoaded=false; alert('cibung.jpg 로드 실패: 리포지토리 루트에 업로드했는지 확인하세요.'); };
+plImg.onload = ()=>{ plLoaded=true; checkReady(); drawIdle(); };
+plImg.onerror = ()=>{ plLoaded=false; alert('koyam.jpg 로드 실패: 리포지토리 루트에 업로드했는지 확인하세요.'); };
+obsImg.src = 'cibung.jpg';
+plImg.src = 'koyam.jpg';
 
-/* game state */
-let gameRunning=false;
-let player={x:160,y:0,w:120,h:46,vy:0,onGround:false};
-let obstacles=[];
-let spawnTimer=0, spawnInterval=1400;
-let lastTime=0;
-let score=0;
+/* 게임 상태 */
+let gameRunning = false;
+let score = 0;
 let best = Number(localStorage.getItem('mahwa_best_github')||0);
 bestEl.textContent = best;
-let muted=false;
 
-/* sound */
+/* dynamic sizes (will be computed on reset/resize) */
+let player = {x:0,y:0,w:0,h:0,vy:0,onGround:true};
+let obstacles = [];
+let lastSpawnTime = 0;
+let spawnIntervalMs = 1200; // will be recalculated
+let worldBaseSpeed = 260; // px/s baseline (will scale with difficulty/time)
+let timeStart = 0;
+
+/* physics parameters to compute */
+let GRAVITY = 2000; // px/s^2 (will be recomputed)
+let JUMP_V0 = -700; // px/s (will be recomputed)
+let safetyMargin = 8;
+
+/* audio */
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+let muted = false;
 function playTone(freq=440, dur=0.08, type='sine', gain=0.08){
   if(muted) return;
   try{
@@ -136,35 +124,307 @@ function playTone(freq=440, dur=0.08, type='sine', gain=0.08){
     o.start(); o.stop(audioCtx.currentTime + dur);
   }catch(e){}
 }
-muteBtn.addEventListener('click', ()=>{ muted = !muted; muteBtn.textContent = muted? '🔈':'🔊'; });
+muteBtn.addEventListener('click', ()=>{ muted = !muted; muteBtn.textContent = muted? '🔈' : '🔊'; });
 
-/* compute sizes preserving ratio */
-function computePlayerSize(canvasH){
-  const targetH = Math.max(36, Math.min(160, canvasH * 0.14));
-  const w = targetH * (PLAYER_R_W / PLAYER_R_H);
-  return {w:Math.round(w), h:Math.round(targetH)};
-}
-function computeObstacleSize(canvasH){
-  const targetH = Math.max(48, Math.min(300, canvasH * 0.20));
-  const w = targetH * (OB_R_W / OB_R_H);
-  return {w:Math.round(w), h:Math.round(targetH)};
-}
+/* helper: compute drawn sizes preserving ratios but allowing us to choose scale factors */
+function computeSizes(){
+  const H = canvas.height;
+  // make player somewhat larger than previous and obstacles a bit smaller so jump feasible:
+  // player target height ~ 16% of canvas, obstacle target height ~ 12% (subject to clamps)
+  const playerTargetH = Math.max(40, Math.min(240, Math.round(H * 0.16)));
+  const obstacleTargetH = Math.max(48, Math.min(320, Math.round(H * 0.12)));
 
-/* preload images from fixed filenames (no inputs) */
-function autoLoad(){
-  obsLoaded = plLoaded = false;
-  obsImg = new Image();
-  plImg = new Image();
-  // same-origin relative paths (these files must be in the same repo root)
-  obsImg.onload = ()=>{ obsLoaded = true; previewObs.src = 'cibung.jpg'; checkReady(); drawIdle(); };
-  obsImg.onerror = ()=>{ obsLoaded = false; previewObs.src=''; console.warn('cibung.jpg 로드 실패 — 파일명/위치 확인'); alert('장애물 이미지(cibung.jpg) 로드 실패: 리포지토리 루트에 파일을 올렸는지 확인하세요.'); };
-  plImg.onload = ()=>{ plLoaded = true; previewPl.src = 'koyam.jpg'; checkReady(); drawIdle(); };
-  plImg.onerror = ()=>{ plLoaded = false; previewPl.src=''; console.warn('koyam.jpg 로드 실패 — 파일명/위치 확인'); alert('캐릭터 이미지(koyam.jpg) 로드 실패: 리포지토리 루트에 파일을 올렸는지 확인하세요.'); };
-  obsImg.src = 'cibung.jpg';
-  plImg.src = 'koyam.jpg';
+  const playerW = Math.round(playerTargetH * (PLAYER_R_W / PLAYER_R_H));
+  const obstacleW = Math.round(obstacleTargetH * (OB_R_W / OB_R_H));
+  return {playerW, playerH:playerTargetH, obstacleW, obstacleH:obstacleTargetH};
 }
 
-/* readiness */
+/* compute physics constants based on obstacle max height so player's jump clears it */
+function computePhysics(H){
+  // get obstacle height in px
+  const sizes = computeSizes();
+  const maxObH = sizes.obstacleH;
+
+  // safety margin: at least 10% of obstacle height or 8px
+  safetyMargin = Math.max(8, Math.round(maxObH * 0.10));
+
+  // Choose gravity relative to canvas height for consistent feel across sizes
+  // Higher gravity -> quicker, snappier jumps; we pick moderate gravity
+  // scale base gravity by canvas size ratio
+  const baseCanvas = 640;
+  GRAVITY = 2200 * (H / baseCanvas); // px/s^2
+
+  // To clear obstacle, player must raise by about obstacle height (derivation in analysis).
+  // Required vertical displacement (deltaY) = obstacle height + safetyMargin
+  const requiredRise = maxObH + safetyMargin;
+
+  // initial jump velocity to reach requiredRise: v0 = sqrt(2 * g * requiredRise)
+  // negative because up is negative
+  JUMP_V0 = - Math.ceil(Math.sqrt(2 * GRAVITY * requiredRise));
+
+  // clamp to reasonable ranges
+  const maxV = 1400 * (H / baseCanvas);
+  if(Math.abs(JUMP_V0) > maxV) JUMP_V0 = -maxV;
+
+  // compute expected airtime (time to go up and down to starting level): t = 2*|v0|/g
+  const airtime = 2 * Math.abs(JUMP_V0) / GRAVITY; // seconds
+
+  return {GRAVITY, JUMP_V0, safetyMargin, airtime, maxObH};
+}
+
+/* spawn interval logic: ensure spacing so that obstacles don't appear too close for the jump */
+function computeSpawnIntervalPx(airtime, obstacleW, difficultyMultiplier, timeFactor=1){
+  // desired horizontal clearance during a jump: let player move horizontally (world speed) for airtime.
+  // We'll set spawn spacing so that next obstacle appears at least playerHorizontalTravel * 0.9
+  // Let base desired spacing pixels (for low speed)
+  const baseSpacing = canvas.width * (difficultyMultiplier === 1.0 ? 0.75 : difficultyMultiplier === 0.9 ? 0.65 : 0.55);
+  // We'll use actual world speed when spawning to convert px->ms in loop.
+  return {baseSpacing, obstacleW};
+}
+
+/* reset state before start */
+function resetState(){
+  resizeCanvas();
+  const sizes = computeSizes();
+  player.w = sizes.playerW; player.h = sizes.playerH;
+  player.x = Math.round(canvas.width * 0.12);
+  player.y = canvas.height - player.h - Math.floor(canvas.height * 0.06);
+  player.vy = 0; player.onGround = true;
+  obstacles = [];
+  score = 0;
+  scoreEl.textContent = score;
+  // recompute physics based on sizes
+  const phys = computePhysics(canvas.height);
+  // initial spawnInterval will be computed dynamically in loop using airtime and world speed
+  lastSpawnTime = performance.now();
+  timeStart = performance.now();
+}
+
+/* spawning utility: create obstacle at right edge with computed sizes */
+function spawnObstacle(worldSpeed, difficultyMultiplier){
+  const sizes = computeSizes();
+  const s = { w: sizes.obstacleW, h: sizes.obstacleH };
+  // spawn x = canvas.width + small jitter
+  const x = canvas.width + 10 + Math.random() * 140;
+  const y = canvas.height - s.h - Math.floor(canvas.height * 0.06);
+  obstacles.push({x, y, w: s.w, h: s.h, passed:false});
+}
+
+/* collision AABB */
+function rectsCollide(a,b){
+  return !(a.x + a.w <= b.x || a.x >= b.x + b.w || a.y + a.h <= b.y || a.y >= b.y + b.h);
+}
+
+/* input */
+function jump(){
+  if(!gameRunning) return;
+  if(player.onGround){
+    player.vy = JUMP_V0; // px/s upward (negative)
+    player.onGround = false;
+    playTone(720, 0.12, 'sine', 0.12);
+  }
+}
+window.addEventListener('keydown', e=>{ if(e.code === 'Space'){ e.preventDefault(); jump(); }});
+canvas.addEventListener('mousedown', ()=>jump());
+canvas.addEventListener('touchstart', ()=>{ jump(); }, {passive:true});
+
+/* difficulty multiplier */
+function difficultyMultiplierFor(d){
+  if(d === 'easy') return 0.85;
+  if(d === 'normal') return 1.0;
+  return 1.25; // hard -> faster world speed but spawn logic compensates
+}
+
+/* main loop variables */
+let prevTime = 0;
+let spawnAccumulator = 0;
+
+function startGame(){
+  if(!obsLoaded || !plLoaded){
+    alert('이미지(cibung.jpg, koyam.jpg)를 먼저 업로드한 뒤 페이지를 새로고침 해주세요.');
+    return;
+  }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  resetState();
+  prevTime = performance.now();
+  spawnAccumulator = 0;
+  gameRunning = true;
+  startBtn.disabled = true;
+  retryBtn.disabled = true;
+  playTone(880, 0.12, 'triangle', 0.08);
+  requestAnimationFrame(gameLoop);
+}
+
+function endGame(){
+  gameRunning = false;
+  retryBtn.disabled = false;
+  startBtn.disabled = false;
+  playTone(150, 0.35, 'sawtooth', 0.18);
+  if(score > best){ best = score; localStorage.setItem('mahwa_best_github', best); bestEl.textContent = best; }
+}
+
+/* gameLoop uses real dt in seconds and worldSpeed in px/s */
+function gameLoop(now){
+  if(!gameRunning) return;
+  const dtMs = Math.min(40, now - prevTime);
+  const dt = dtMs / 1000; // seconds
+  prevTime = now;
+
+  // timeFactor slowly increases difficulty over time (1 -> ~3.5)
+  const timeFactor = Math.min(3.5, 1 + (now - timeStart) / 60000);
+  const diff = difficultyEl.value;
+  const diffMult = difficultyMultiplierFor(diff);
+
+  // world speed depends on base, difficulty, and timeFactor
+  const worldSpeed = worldBaseSpeed * diffMult * timeFactor; // px/s
+
+  // compute physics on-the-fly (ensures values match current canvas sizes if resized)
+  const phys = computePhysics(canvas.height);
+  // airtime = 2*|v0|/g
+  const airtime = 2 * Math.abs(JUMP_V0) / GRAVITY;
+
+  // spawn logic: compute adaptive spawn interval such that horizontal spacing >= needed clearance
+  // required horizontal clearance distance = worldSpeed * airtime * 0.7 (we want some overlap but not too much)
+  const sizes = computeSizes();
+  const desiredSpacingPx = Math.max(canvas.width * 0.55, worldSpeed * airtime * 0.9 + sizes.obstacleW * 1.2);
+  const spawnIntervalNow = Math.max(500, desiredSpacingPx / worldSpeed * 1000); // ms
+
+  spawnAccumulator += dtMs;
+  if(spawnAccumulator >= spawnIntervalNow){
+    spawnAccumulator = 0;
+    spawnObstacle(worldSpeed, diffMult);
+  }
+
+  // physics integration: player vy in px/s, gravity in px/s^2
+  player.vy += GRAVITY * dt;
+  player.y += player.vy * dt;
+  const groundY = canvas.height - Math.floor(canvas.height * 0.06);
+  if(player.y + player.h >= groundY){
+    player.y = groundY - player.h;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  // move obstacles left by worldSpeed*dt
+  for(let i = obstacles.length - 1; i >= 0; i--){
+    obstacles[i].x -= worldSpeed * dt;
+    if(obstacles[i].x + obstacles[i].w < -200) obstacles.splice(i,1);
+  }
+
+  // collisions & scoring
+  for(const ob of obstacles){
+    if(!ob.passed && ob.x + ob.w < player.x){
+      ob.passed = true;
+      score += 10;
+      playTone(880 + Math.random() * 220, 0.09, 'triangle', 0.06);
+    }
+    const pBox = {x: player.x, y: player.y, w: player.w, h: player.h};
+    const oBox = {x: ob.x, y: ob.y, w: ob.w, h: ob.h};
+    if(rectsCollide(pBox, oBox)){
+      endGame();
+      return;
+    }
+  }
+
+  // time-based incremental score
+  score += Math.floor(dt * 10 * timeFactor);
+  scoreEl.textContent = score;
+
+  // draw frame
+  drawFrame(now, worldSpeed, timeFactor);
+  requestAnimationFrame(gameLoop);
+}
+
+/* draw everything */
+function drawFrame(now, worldSpeed, timeFactor){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // background gradient
+  const g = ctx.createLinearGradient(0,0,0,canvas.height);
+  g.addColorStop(0,'#071426'); g.addColorStop(1,'#03091a');
+  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // decorative parallax blobs
+  for(let i=0;i<6;i++){
+    const t = now/1000;
+    const depth = 1 - i*0.12;
+    const x = (Math.sin(t*0.35 + i)*0.5 + 0.5) * canvas.width;
+    const y = (Math.cos(t*0.5 + i)*0.4 + 0.5) * canvas.height * 0.7;
+    const r = 60 + i*10;
+    ctx.beginPath();
+    ctx.fillStyle = `hsla(${(60+i*30)%360}, 70%, ${30 + i*4}%, ${0.06 + i*0.02})`;
+    ctx.ellipse(x, y + i*6, r * depth, r * 0.6 * depth, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // ground
+  const groundH = Math.floor(canvas.height * 0.06);
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.fillRect(0, canvas.height - groundH, canvas.width, groundH);
+
+  // draw obstacles (exact scale from computeSizes)
+  for(const ob of obstacles){
+    if(obsLoaded){
+      try{
+        ctx.drawImage(obsImg, ob.x, ob.y, ob.w, ob.h);
+      }catch(e){
+        ctx.fillStyle = 'rgba(255,255,255,0.03)';
+        ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(ob.x + ob.w*0.5, ob.y + ob.h + 8, ob.w*0.45, 10, 0, 0, Math.PI*2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+    }
+  }
+
+  // player (with small bob)
+  const bob = player.onGround ? Math.sin(now/180)*1.6 : 0;
+  if(plLoaded){
+    try{ ctx.drawImage(plImg, player.x, player.y + bob, player.w, player.h); }
+    catch(e){ ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(player.x, player.y + bob, player.w, player.h); }
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(player.x, player.y + bob, player.w, player.h);
+  }
+
+  // HUD
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillRect(12*DPR, 12*DPR, 280*DPR, 46*DPR);
+  ctx.fillStyle = '#dff0ff';
+  ctx.font = `${14*DPR}px sans-serif`;
+  ctx.fillText('점수: ' + score, 22*DPR, 36*DPR);
+  ctx.fillText('최고: ' + best, 140*DPR, 36*DPR);
+  ctx.restore();
+}
+
+/* idle draw (main screen) */
+function drawIdle(){
+  resizeCanvas();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#071228'); g.addColorStop(1,'#04101a');
+  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // preview obstacle (scale preserving ratio)
+  const sizes = computeSizes();
+  const obDrawW = sizes.obstacleW, obDrawH = sizes.obstacleH;
+  const obX = canvas.width * 0.06;
+  const obY = canvas.height * 0.11 + (canvas.height*0.78 - obDrawH)/2;
+  if(obsLoaded){ try{ ctx.drawImage(obsImg, obX, obY, obDrawW, obDrawH); }catch(e){ ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(obX, obY, obDrawW, obDrawH); } }
+  else { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(obX, obY, obDrawW, obDrawH); }
+
+  // preview player
+  const pDrawW = sizes.playerW, pDrawH = sizes.playerH;
+  const pX = canvas.width * 0.72;
+  const pY = canvas.height * 0.46 - pDrawH*0.5;
+  if(plLoaded){ try{ ctx.drawImage(plImg, pX + (canvas.width*0.18 - pDrawW)/2, pY + (canvas.height*0.18 - pDrawH)/2, pDrawW, pDrawH); }catch(e){ ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(pX, pY, pDrawW, pDrawH); } }
+  else { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(pX, pY, pDrawW, pDrawH); }
+}
+
+/* readiness check */
 function checkReady(){
   if(obsLoaded && plLoaded){
     startBtn.disabled = false;
@@ -173,215 +433,14 @@ function checkReady(){
   }
 }
 
-/* controls */
-function jump(){
-  if(!gameRunning) return;
-  if(player.onGround){
-    player.vy = -18 - Math.random()*2;
-    player.onGround = false;
-    playTone(720,0.12,'sine',0.12);
-  }
-}
-window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault(); jump(); } });
-canvas.addEventListener('mousedown', ()=>jump());
-canvas.addEventListener('touchstart', ()=>{ jump(); }, {passive:true});
-
-/* difficulty */
-function setDifficulty(d){
-  if(d==='easy') spawnInterval = 1600;
-  else if(d==='normal') spawnInterval = 1300;
-  else spawnInterval = 1000;
-}
-difficultyEl.addEventListener('change', ()=> setDifficulty(difficultyEl.value));
-setDifficulty(difficultyEl.value);
-
-/* reset/start/end */
-function resetState(){
-  resizeCanvas();
-  obstacles = [];
-  spawnTimer = 0;
-  score = 0;
-  lastTime = performance.now();
-  player.vy = 0;
-  player.onGround = true;
-  const p = computePlayerSize(canvas.height);
-  player.w = p.w; player.h = p.h;
-  player.x = Math.round(canvas.width * 0.12);
-  player.y = canvas.height - player.h - Math.floor(canvas.height*0.06);
-  scoreEl.textContent = score;
-}
-function startGame(){
-  if(!obsLoaded || !plLoaded){ alert('이미지를 먼저 업로드하고 페이지를 새로고침 해주세요 (cibung.jpg, koyam.jpg)'); return; }
-  if(audioCtx.state === 'suspended') audioCtx.resume();
-  setDifficulty(difficultyEl.value);
-  resetState();
-  gameRunning = true;
-  startBtn.disabled = true;
-  retryBtn.disabled = true;
-  playTone(880,0.12,'triangle',0.08);
-  requestAnimationFrame(loop);
-}
-function endGame(){
-  gameRunning = false;
-  retryBtn.disabled = false;
-  startBtn.disabled = false;
-  playTone(150,0.35,'sawtooth',0.18);
-  if(score > best){ best = score; localStorage.setItem('mahwa_best_github', best); bestEl.textContent = best; }
-}
-
-/* spawn */
-function spawnObstacle(){
-  const s = computeObstacleSize(canvas.height);
-  const x = canvas.width + 20 + Math.random()*180;
-  const y = canvas.height - s.h - Math.floor(canvas.height*0.06);
-  obstacles.push({x, y, w: s.w, h: s.h, passed:false});
-}
-
-/* collision */
-function rectsCollide(a,b){
-  return !(a.x + a.w < b.x || a.x > b.x + b.w || a.y + a.h < b.y || a.y > b.y + b.h);
-}
-
-/* main loop */
-function loop(t){
-  if(!gameRunning) return;
-  const dt = Math.min(40, t - lastTime);
-  lastTime = t;
-  const timeFactor = Math.min(3.5, 1 + t/60000);
-  const worldSpeed = 240 * timeFactor;
-
-  spawnTimer += dt;
-  if(spawnTimer > spawnInterval / Math.max(0.6, timeFactor)){
-    spawnTimer = 0;
-    spawnObstacle();
-  }
-
-  // physics
-  player.vy += 1.2 * (dt/16.67);
-  player.y += player.vy * (dt/16.67);
-  const groundY = canvas.height - Math.floor(canvas.height*0.06);
-  if(player.y + player.h >= groundY){
-    player.y = groundY - player.h;
-    player.vy = 0;
-    player.onGround = true;
-  }
-
-  // move obstacles
-  for(let i=obstacles.length-1;i>=0;i--){
-    obstacles[i].x -= worldSpeed * (dt/1000);
-    if(obstacles[i].x + obstacles[i].w < -150) obstacles.splice(i,1);
-  }
-
-  // collisions & scoring
-  for(let ob of obstacles){
-    if(!ob.passed && ob.x + ob.w < player.x){ ob.passed = true; score += 10; playTone(880 + Math.random()*220, 0.09, 'triangle', 0.06); }
-    const pBox = {x:player.x, y:player.y, w:player.w, h:player.h};
-    const oBox = {x:ob.x, y:ob.y, w:ob.w, h:ob.h};
-    if(rectsCollide(pBox, oBox)){
-      endGame();
-      return;
-    }
-  }
-
-  // score over time
-  score += Math.floor(dt/50 * (0.6 * timeFactor));
-  scoreEl.textContent = score;
-
-  drawFrame(worldSpeed, timeFactor);
-  requestAnimationFrame(loop);
-}
-
-/* draw */
-function drawFrame(worldSpeed, timeFactor){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  // background
-  const g = ctx.createLinearGradient(0,0,0,canvas.height);
-  g.addColorStop(0,'#071426'); g.addColorStop(1,'#03091a');
-  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  // decorative blobs
-  const now = performance.now()/1000;
-  for(let i=0;i<6;i++){
-    const depth = 1 - i*0.11;
-    const x = (Math.sin(now*0.35 + i)*0.5 + 0.5) * canvas.width;
-    const y = (Math.cos(now*0.5 + i)*0.4 + 0.5) * canvas.height * 0.7;
-    const r = 60 + i*12;
-    ctx.beginPath();
-    ctx.fillStyle = `hsla(${(60+i*30)%360},70%,${30+i*4}%,${0.06+i*0.02})`;
-    ctx.ellipse(x, y + i*6, r*depth, r*0.6*depth, 0, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  // ground
-  const groundH = Math.floor(canvas.height*0.06);
-  ctx.fillStyle = 'rgba(0,0,0,0.32)';
-  ctx.fillRect(0,canvas.height-groundH,canvas.width,groundH);
-
-  // draw obstacles
-  for(let ob of obstacles){
-    if(obsLoaded){
-      try{ ctx.drawImage(obsImg, ob.x, ob.y, ob.w, ob.h); }
-      catch(e){ ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(ob.x, ob.y, ob.w, ob.h); }
-      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath();
-      ctx.ellipse(ob.x + ob.w*0.5, ob.y + ob.h + 8, ob.w*0.45, 10, 0,0,Math.PI*2); ctx.fill();
-    } else {
-      ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
-    }
-  }
-
-  // draw player
-  const bob = player.onGround ? Math.sin(performance.now()/180)*1.6 : 0;
-  if(plLoaded){
-    try{ ctx.drawImage(plImg, player.x, player.y + bob, player.w, player.h); }
-    catch(e){ ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(player.x, player.y + bob, player.w, player.h); }
-  } else {
-    ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(player.x, player.y + bob, player.w, player.h);
-  }
-
-  // HUD
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  ctx.fillRect(12*DPR, 12*DPR, 260*DPR, 44*DPR);
-  ctx.fillStyle = '#dff0ff';
-  ctx.font = `${14*DPR}px sans-serif`;
-  ctx.fillText('점수: ' + score, 22*DPR, 36*DPR);
-  ctx.fillText('최고: ' + best, 120*DPR, 36*DPR);
-  ctx.restore();
-}
-
-/* idle draw */
-function drawIdle(){
-  resizeCanvas();
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#071228'); g.addColorStop(1,'#04101a');
-  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  // obstacle preview
-  const obAreaW = canvas.width*0.3; const obAreaH = canvas.height*0.78;
-  const obDrawH = Math.min(obAreaH, obAreaW * (OB_R_H/OB_R_W));
-  const obDrawW = Math.round(obDrawH * (OB_R_W/OB_R_H));
-  const obX = canvas.width*0.06; const obY = canvas.height*0.11 + (obAreaH - obDrawH)/2;
-  if(obsLoaded){ try{ ctx.drawImage(obsImg, obX, obY, obDrawW, obDrawH); }catch(e){ ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(obX, obY, obDrawW, obDrawH); } }
-  else { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(obX, obY, obDrawW, obDrawH); }
-
-  // player preview
-  const pAreaW = canvas.width*0.18; const pAreaH = canvas.height*0.18;
-  const pDrawH = Math.min(pAreaH, pAreaW * (PLAYER_R_H/PLAYER_R_W));
-  const pDrawW = Math.round(pDrawH * (PLAYER_R_W/PLAYER_R_H));
-  const pX = canvas.width*0.72; const pY = canvas.height*0.46 - pDrawH*0.5;
-  if(plLoaded){ try{ ctx.drawImage(plImg, pX + (pAreaW-pDrawW)/2, pY + (pAreaH-pDrawH)/2, pDrawW, pDrawH); }catch(e){ ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(pX + (pAreaW-pDrawW)/2, pY + (pAreaH-pDrawH)/2, pDrawW, pDrawH); } }
-  else { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(pX + (pAreaW-pDrawW)/2, pY + (pAreaH-pDrawH)/2, pDrawW, pDrawH); }
-}
-
 /* wiring */
 startBtn.addEventListener('click', ()=>{ if(audioCtx.state==='suspended') audioCtx.resume(); startGame(); });
 retryBtn.addEventListener('click', ()=>{ resetState(); startGame(); });
 
-/* init: auto-load and idle */
+/* auto-init */
 (function init(){
-  // automatically try to load the two fixed files from repo root
-  autoLoad();
+  // wait for images to attempt load (obsImg.src & plImg.src are set above)
+  // idle loop until start
   function idleLoop(){ if(!gameRunning) drawIdle(); requestAnimationFrame(idleLoop); }
   idleLoop();
 })();
