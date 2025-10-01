@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>마화섹 피하기 — GitHub Pages</title>
+<style>
+  :root{
+    --bg1:#061127; --panel:rgba(255,255,255,0.04); --text:#e9f6ff;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),#04101a);font-family:Inter, "Noto Sans KR", system-ui, -apple-system, sans-serif;color:var(--text)}
+  .wrap{display:flex;flex-direction:column;height:100vh;padding:12px;box-sizing:border-box;gap:10px}
+  .top{display:flex;gap:8px;align-items:center}
+  .panel{background:var(--panel);padding:10px;border-radius:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  input[type=text]{background:transparent;color:var(--text);padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);min-width:280px}
+  button{background:linear-gradient(90deg,#7c3aed,#ec4899);border:none;color:white;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  #gamebox{position:relative;flex:1;border-radius:12px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,0.6)}
+  canvas{display:block;width:100%;height:100%}
+  .preview{display:flex;gap:8px;align-items:center}
+  .preview img{max-height:64px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)}
+  footer{font-size:12px;color:#9bb7e6;text-align:center;padding:6px}
+  .controls{display:flex;gap:6px;align-items:center}
+  .stat{font-size:14px;color:#cfe8ff}
+  .hint{background:rgba(0,0,0,0.45);padding:8px;border-radius:8px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="panel" style="flex:1;gap:12px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <label style="color:#bfe6ff;font-weight:600">장애물 URL (비율 720×934):</label>
+        <input id="obUrl" type="text" value="https://ssib.al/chibu" />
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <label style="color:#bfe6ff;font-weight:600">캐릭터 URL (비율 143×54):</label>
+        <input id="plUrl" type="text" value="https://ssib.al/koyam" />
+      </div>
+      <div class="controls">
+        <button id="loadBtn">Load</button>
+        <select id="difficulty">
+          <option value="easy">쉬움</option>
+          <option value="normal" selected>보통</option>
+          <option value="hard">어려움</option>
+        </select>
+        <button id="startBtn" disabled>Start</button>
+        <button id="retryBtn" disabled>Retry</button>
+        <button id="muteBtn">🔊</button>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <div class="stat">점수: <strong id="score">0</strong></div>
+        <div class="stat">최고: <strong id="best">0</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gamebox">
+    <canvas id="game"></canvas>
+
+    <!-- 미리보기 (메인 화면에도 표시) -->
+    <div style="position:absolute;left:12px;top:12px;display:flex;gap:12px;align-items:center">
+      <div class="preview"><div style="font-size:12px;color:#d9f0ff">장애물</div><img id="previewObs" alt="obs"/></div>
+      <div class="preview"><div style="font-size:12px;color:#d9f0ff">캐릭터</div><img id="previewPl" alt="pl"/></div>
+    </div>
+
+    <div style="position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+      <div class="hint">스페이스/클릭/터치 -> 점프 · 이미지는 비율 유지로만 스케일됩니다.</div>
+    </div>
+  </div>
+
+  <footer>GitHub Pages용 빌드 — 이미지 비율(143×54, 720×934) 그대로 히트박스 일치.</footer>
+</div>
+
+<script>
+/* ============================
+   GitHub Pages용 단일 파일 게임
+   - 장애물 비율: 720x934
+   - 캐릭터 비율: 143x54
+   - 이미지 원본은 건드리지 않음(비율 유지 스케일만)
+   - 히트박스는 이미지 출력 사각형과 정확히 일치
+   ============================ */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d',{alpha:true});
+let DPR = window.devicePixelRatio || 1;
+function resizeCanvas(){
+  const r = canvas.getBoundingClientRect();
+  canvas.width = Math.max(900, Math.floor(r.width * DPR));
+  canvas.height = Math.max(480, Math.floor(r.height * DPR));
+}
+window.addEventListener('resize', ()=>{ DPR = window.devicePixelRatio || 1; resizeCanvas(); });
+resizeCanvas();
+
+/* UI elements */
+const obUrlIn = document.getElementById('obUrl');
+const plUrlIn = document.getElementById('plUrl');
+const loadBtn = document.getElementById('loadBtn');
+const startBtn = document.getElementById('startBtn');
+const retryBtn = document.getElementById('retryBtn');
+const muteBtn = document.getElementById('muteBtn');
+const previewObs = document.getElementById('previewObs');
+const previewPl = document.getElementById('previewPl');
+const scoreEl = document.getElementById('score');
+const bestEl = document.getElementById('best');
+const difficultyEl = document.getElementById('difficulty');
+
+/* ratios (strict) */
+const PLAYER_R_W = 143, PLAYER_R_H = 54;
+const OB_R_W = 720, OB_R_H = 934;
+
+/* images */
+let obsImg = new Image();
+let plImg = new Image();
+// Do NOT set crossOrigin — keep default so we display exactly what host serves.
+// (If host sets CORS headers, that's fine; if not, canvas may be tainted but drawing for gameplay still works.)
+obsImg.onload = ()=>{ previewObs.src = obUrlIn.value; obsLoaded = true; checkReady(); };
+obsImg.onerror = ()=>{ alert('장애물 이미지 로드 실패 — 링크 확인'); obsLoaded=false; previewObs.src=''; };
+plImg.onload = ()=>{ previewPl.src = plUrlIn.value; plLoaded = true; checkReady(); };
+plImg.onerror = ()=>{ alert('캐릭터 이미지 로드 실패 — 링크 확인'); plLoaded=false; previewPl.src=''; };
+
+let obsLoaded=false, plLoaded=false;
+
+/* game state */
+let gameRunning=false;
+let player={x:160,y:0,w:120,h:46,vy:0,onGround:false};
+let obstacles=[];
+let spawnTimer=0, spawnInterval=1400;
+let lastTime=0;
+let score=0;
+let best = Number(localStorage.getItem('mahwa_best_github')||0);
+bestEl.textContent = best;
+let muted=false;
+
+/* audio (WebAudio synth) */
+const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+function playTone(freq=440, dur=0.08, type='sine', gain=0.08){
+  if(muted) return;
+  try{
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.value = gain;
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  }catch(e){}
+}
+muteBtn.addEventListener('click', ()=>{ muted = !muted; muteBtn.textContent = muted? '🔈':'🔊'; });
+
+/* helpers: compute sizes keeping exact ratio (no distortion) */
+function computePlayerSize(canvasH){
+  const targetH = Math.max(36, Math.min(160, canvasH * 0.14));
+  const w = targetH * (PLAYER_R_W / PLAYER_R_H);
+  return {w:Math.round(w), h:Math.round(targetH)};
+}
+function computeObstacleSize(canvasH){
+  const targetH = Math.max(48, Math.min(300, canvasH * 0.20));
+  const w = targetH * (OB_R_W / OB_R_H);
+  return {w:Math.round(w), h:Math.round(targetH)};
+}
+
+/* load handler */
+loadBtn.addEventListener('click', ()=>{
+  // set image src to user-provided URLs
+  try{
+    obsLoaded = plLoaded = false;
+    obsImg = new Image(); plImg = new Image();
+    // No crossOrigin set intentionally to avoid fetch failures on non-CORS servers — this will still draw.
+    obsImg.onload = ()=>{ obsLoaded = true; previewObs.src = obUrlIn.value; checkReady(); drawIdle(); };
+    obsImg.onerror = ()=>{ obsLoaded=false; previewObs.src=''; alert('장애물 로드 실패'); };
+    plImg.onload = ()=>{ plLoaded = true; previewPl.src = plUrlIn.value; checkReady(); drawIdle(); };
+    plImg.onerror = ()=>{ plLoaded=false; previewPl.src=''; alert('캐릭터 로드 실패'); };
+    obsImg.src = obUrlIn.value;
+    plImg.src = plUrlIn.value;
+  }catch(e){
+    alert('이미지 로드 중 오류: ' + e.message);
+  }
+});
+
+/* readiness */
+function checkReady(){
+  if(obsLoaded && plLoaded){
+    startBtn.disabled = false;
+    retryBtn.disabled = true;
+    resetState();
+  }
+}
+
+/* controls */
+function jump(){
+  if(!gameRunning) return;
+  if(player.onGround){
+    player.vy = -18 - Math.random()*2;
+    player.onGround = false;
+    playTone(720,0.12,'sine',0.12);
+  }
+}
+window.addEventListener('keydown', e=>{ if(e.code==='Space'){ e.preventDefault(); jump(); } });
+canvas.addEventListener('mousedown', ()=>jump());
+canvas.addEventListener('touchstart', ()=>{ jump(); }, {passive:true});
+
+/* difficulty */
+function setDifficulty(d){
+  if(d==='easy') spawnInterval = 1600;
+  else if(d==='normal') spawnInterval = 1300;
+  else spawnInterval = 1000;
+}
+difficultyEl.addEventListener('change', ()=> setDifficulty(difficultyEl.value));
+setDifficulty(difficultyEl.value);
+
+/* reset/start/end */
+function resetState(){
+  resizeCanvas();
+  obstacles = [];
+  spawnTimer = 0;
+  score = 0;
+  lastTime = performance.now();
+  player.vy = 0;
+  player.onGround = true;
+  const p = computePlayerSize(canvas.height);
+  player.w = p.w; player.h = p.h;
+  player.x = Math.round(canvas.width * 0.12);
+  player.y = canvas.height - player.h - Math.floor(canvas.height*0.06);
+  scoreEl.textContent = score;
+}
+function startGame(){
+  if(!obsLoaded || !plLoaded){ alert('이미지 먼저 불러오기'); return; }
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  setDifficulty(difficultyEl.value);
+  resetState();
+  gameRunning = true;
+  startBtn.disabled = true;
+  retryBtn.disabled = true;
+  playTone(880,0.12,'triangle',0.08);
+  requestAnimationFrame(loop);
+}
+function endGame(){
+  gameRunning = false;
+  retryBtn.disabled = false;
+  startBtn.disabled = false;
+  playTone(150,0.35,'sawtooth',0.18);
+  if(score > best){ best = score; localStorage.setItem('mahwa_best_github', best); bestEl.textContent = best; }
+}
+
+/* spawn obstacle */
+function spawnObstacle(){
+  const s = computeObstacleSize(canvas.height);
+  const x = canvas.width + 20 + Math.random()*180;
+  const y = canvas.height - s.h - Math.floor(canvas.height*0.06);
+  obstacles.push({x, y, w: s.w, h: s.h, passed:false});
+}
+
+/* collision (AABB exactly matches the drawn image rectangle) */
+function rectsCollide(a,b){
+  return !(a.x + a.w < b.x || a.x > b.x + b.w || a.y + a.h < b.y || a.y > b.y + b.h);
+}
+
+/* main loop */
+function loop(t){
+  if(!gameRunning) return;
+  const dt = Math.min(40, t - lastTime);
+  lastTime = t;
+  const timeFactor = Math.min(3.5, 1 + t/60000);
+  const worldSpeed = 240 * timeFactor;
+
+  spawnTimer += dt;
+  if(spawnTimer > spawnInterval / Math.max(0.6, timeFactor)){
+    spawnTimer = 0;
+    spawnObstacle();
+  }
+
+  // physics
+  player.vy += 1.2 * (dt/16.67);
+  player.y += player.vy * (dt/16.67);
+  const groundY = canvas.height - Math.floor(canvas.height*0.06);
+  if(player.y + player.h >= groundY){
+    player.y = groundY - player.h;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  // move obstacles
+  for(let i=obstacles.length-1;i>=0;i--){
+    obstacles[i].x -= worldSpeed * (dt/1000);
+    if(obstacles[i].x + obstacles[i].w < -150) obstacles.splice(i,1);
+  }
+
+  // collisions & scoring
+  for(let ob of obstacles){
+    if(!ob.passed && ob.x + ob.w < player.x){ ob.passed = true; score += 10; playTone(880 + Math.random()*220, 0.09, 'triangle', 0.06); }
+    const pBox = {x:player.x, y:player.y, w:player.w, h:player.h};
+    const oBox = {x:ob.x, y:ob.y, w:ob.w, h:ob.h};
+    if(rectsCollide(pBox, oBox)){
+      endGame();
+      return;
+    }
+  }
+
+  // time-based score increment
+  score += Math.floor(dt/50 * (0.6 * timeFactor));
+  scoreEl.textContent = score;
+
+  drawFrame(worldSpeed, timeFactor);
+  requestAnimationFrame(loop);
+}
+
+/* draw everything */
+function drawFrame(worldSpeed, timeFactor){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // background gradient
+  const g = ctx.createLinearGradient(0,0,0,canvas.height);
+  g.addColorStop(0,'#071426'); g.addColorStop(1,'#03091a');
+  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // decorative parallax blobs
+  const now = performance.now()/1000;
+  for(let i=0;i<6;i++){
+    const depth = 1 - i*0.11;
+    const x = (Math.sin(now*0.35 + i)*0.5 + 0.5) * canvas.width;
+    const y = (Math.cos(now*0.5 + i)*0.4 + 0.5) * canvas.height * 0.7;
+    const r = 60 + i*12;
+    ctx.beginPath();
+    ctx.fillStyle = `hsla(${(60+i*30)%360},70%,${30+i*4}%,${0.06+i*0.02})`;
+    ctx.ellipse(x, y + i*6, r*depth, r*0.6*depth, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // ground
+  const groundH = Math.floor(canvas.height*0.06);
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.fillRect(0,canvas.height-groundH,canvas.width,groundH);
+
+  // draw obstacles (exactly scaled to our computed rects — image not edited)
+  for(let ob of obstacles){
+    if(obsLoaded){
+      try{
+        ctx.drawImage(obsImg, ob.x, ob.y, ob.w, ob.h);
+      }catch(e){
+        // draw fallback box if drawImage fails (shouldn't happen for display)
+        ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+      }
+      // shadow:
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath(); ctx.ellipse(ob.x + ob.w*0.5, ob.y + ob.h + 8, ob.w*0.45, 10, 0,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.02)'; ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
+    }
+  }
+
+  // draw player (scaled by strict ratio)
+  const bob = player.onGround ? Math.sin(performance.now()/180)*1.6 : 0;
+  if(plLoaded){
+    try{ ctx.drawImage(plImg, player.x, player.y + bob, player.w, player.h); }
+    catch(e){ ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(player.x, player.y + bob, player.w, player.h); }
+  } else {
+    ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fillRect(player.x, player.y + bob, player.w, player.h);
+  }
+
+  // HUD small
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillRect(12*DPR, 12*DPR, 260*DPR, 44*DPR);
+  ctx.fillStyle = '#dff0ff';
+  ctx.font = `${14*DPR}px sans-serif`;
+  ctx.fillText('점수: ' + score, 22*DPR, 36*DPR);
+  ctx.fillText('최고: ' + best, 120*DPR, 36*DPR);
+  ctx.restore();
+}
+
+/* idle draw (main screen shows both images scaled by ratio) */
+function drawIdle(){
+  resizeCanvas();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const g = ctx.createLinearGradient(0,0,0,canvas.height); g.addColorStop(0,'#071228'); g.addColorStop(1,'#04101a');
+  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // obstacle preview left
+  const obAreaW = canvas.width*0.3; const obAreaH = canvas.height*0.78;
+  const obDrawH = Math.min(obAreaH, obAreaW * (OB_R_H/OB_R_W));
+  const obDrawW = Math.round(obDrawH * (OB_R_W/OB_R_H));
+  const obX = canvas.width*0.06; const obY = canvas.height*0.11 + (obAreaH - obDrawH)/2;
+  if(obsLoaded){ try{ ctx.drawImage(obsImg, obX, obY, obDrawW, obDrawH); }catch(e){ ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(obX, obY, obDrawW, obDrawH); } }
+  else { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(obX, obY, obDrawW, obDrawH); }
+
+  // player preview right
+  const pAreaW = canvas.width*0.18; const pAreaH = canvas.height*0.18;
+  const pDrawH = Math.min(pAreaH, pAreaW * (PLAYER_R_H/PLAYER_R_W));
+  const pDrawW = Math.round(pDrawH * (PLAYER_R_W/PLAYER_R_H));
+  const pX = canvas.width*0.72; const pY = canvas.height*0.46 - pDrawH*0.5;
+  if(plLoaded){ try{ ctx.drawImage(plImg, pX + (pAreaW-pDrawW)/2, pY + (pAreaH-pDrawH)/2, pDrawW, pDrawH); }catch(e){ ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(pX + (pAreaW-pDrawW)/2, pY + (pAreaH-pDrawH)/2, pDrawW, pDrawH); } }
+  else { ctx.fillStyle='rgba(255,255,255,0.02)'; ctx.fillRect(pX + (pAreaW-pDrawW)/2, pY + (pAreaH-pDrawH)/2, pDrawW, pDrawH); }
+}
+
+/* UI wiring */
+startBtn.addEventListener('click', ()=>{ if(audioCtx.state==='suspended') audioCtx.resume(); startGame(); });
+retryBtn.addEventListener('click', ()=>{ resetState(); startGame(); });
+
+/* initial */
+(function init(){
+  previewObs.src = obUrlIn.value;
+  previewPl.src = plUrlIn.value;
+  // try auto-load (if reachable)
+  loadBtn.click();
+  // idle loop
+  function idleLoop(){ if(!gameRunning) drawIdle(); requestAnimationFrame(idleLoop); }
+  idleLoop();
+})();
+</script>
+</body>
+</html>
